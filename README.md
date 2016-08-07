@@ -8,4 +8,4 @@ Installation:
 3. Run `python tracker.py`  
 
 TODO:
-- Windows and Mac support
+- Mac support

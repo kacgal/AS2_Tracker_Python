@@ -2,7 +2,15 @@ import os
 import sys
 import time
 
-import psutil
+try:
+  import psutil
+except:
+  print("psutil not found, continuing anyway")
+
+try:
+  import winreg
+except:
+  pass
 
 import re
 
@@ -10,14 +18,9 @@ import requests
 
 import xml.etree.ElementTree as etree
 
-'''
-  mode -1 = Unknown, will exit
-  mode  0 = Wait until Audiosurf2 exits, then read file as a whole
-  mode  1 = Watch file and read as it's updated
-'''
-mode = -1
-
+log_loc = None
 last_modified_time = 0
+as2_was_open = True
 
 curr_xml = ""
 append = False
@@ -30,19 +33,65 @@ score = 0
 score_pattern = re.compile("^\$#\$ setting score (\d+) for song: .+")
 song_pattern = re.compile("^sending score\. title:(.+) duration:(\d+) artist:(.+)$")
 
-def find_as2_log():
-  global mode
+
+'''
+  mode -1 = Unknown, will exit
+  mode  0 = Wait until Audiosurf2 exits, then read file as a whole
+  mode  1 = Watch file and read as it's updated
+'''
+def get_log_mode():
   if sys.platform == "linux":
-    mode = 1
-    return os.getenv("HOME") + "/.config/unity3d/Audiosurf, LLC/Audiosurf 2/Player.log"
+    return 1
+  elif sys.platform == "win32":
+    return 0
+  else:
+    return -1
+
+def as2_not_found():
+  print("Audiosurf 2 not found! Are you sure it's installed?")
+  print("Submit an issue at https://github.com/kacgal/AS2_Tracker_Python/issues if it is")
+  sys.exit(1)
+
+def find_as2_log():
+  global log_loc
+  if log_loc is not None:
+    return log_loc
+  elif sys.platform == "linux":
+    path = os.getenv("HOME") + "/.config/unity3d/Audiosurf, LLC/Audiosurf 2/Player.log"
+    if os.path.exists(path):
+      log_loc = path
+      return path
+    as2_not_found()
+  elif sys.platform == "win32":
+    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Valve\\Steam")
+    steam_path = winreg.QueryValueEx(key, "InstallPath")[0]
+
+    library_folders = [steam_path]
+    lib_file = steam_path + "\\steamapps\\libraryfolders.vdf"
+    lib_pattern = re.compile("^\s+\"\d+\"\s+\"(.+)\"$")
+
+    if os.path.exists(lib_file):
+      with open(lib_file) as f:
+        for line in f.readlines():
+          if lib_pattern.match(line):
+            library_folders.append(lib_pattern.search(line).group(1))
+
+    for dir in library_folders:
+      if os.path.exists(dir + "\\steamapps\\appmanifest_235800.acf"):
+        log_loc = dir + "\\steamapps\\common\\Audiosurf 2\\Audiosurf2_Data\\output_log.txt"
+        return log_loc
+    as2_not_found()
 
 def is_as2_running():
+  global as2_was_open
   try:
     process_names = [psutil.Process(i).name() for i in psutil.pids()]
   except psutil.NoSuchProcess:
     return False
   if ("Audiosurf2.x86" in process_names
-    or "Audiosurf2.x86_64" in process_names):
+    or "Audiosurf2.x86_64" in process_names
+    or "Audiosurf2.exe" in process_names):
+    as2_was_open = True
     return True
   return False
 
@@ -120,16 +169,19 @@ def handle_line(line):
     curr_xml += line
 
 def main():
-  global last_modified_time
+  global last_modified_time, as2_was_open
 
-  log_path = find_as2_log()
-
+  mode = get_log_mode()
   if mode == -1:
     print("Unknown OS:", sys.platform)
     sys.exit(1)
   elif mode == 0:
     while (is_as2_running()):
       time.sleep(2)
+    if not as2_was_open:
+      return
+    as2_was_open = False
+    log_path = find_as2_log()
     curr_modified_time = os.stat(log_path).st_mtime
     if (last_modified_time < curr_modified_time):
       last_modified_time = curr_modified_time
@@ -137,6 +189,7 @@ def main():
         for line in f.readlines():
           handle_line(line)
   elif mode == 1:
+    log_path = find_as2_log()
     with open(log_path, 'r', encoding="ISO-8859-1") as f:
       prev_size = 0
       curr_size = os.stat(log_path).st_size
