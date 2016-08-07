@@ -18,8 +18,9 @@ import requests
 
 import xml.etree.ElementTree as etree
 
+debug_mode = False
+
 log_loc = None
-last_modified_time = 0
 as2_was_open = True
 
 curr_xml = ""
@@ -33,6 +34,10 @@ score = 0
 score_pattern = re.compile("^\$#\$ setting score (\d+) for song: .+")
 song_pattern = re.compile("^sending score\. title:(.+) duration:(\d+) artist:(.+)$")
 
+def debug(tag, msg=""):
+  global debug_mode
+  if debug_mode:
+    print(tag, ":", msg)
 
 '''
   mode -1 = Unknown, will exit
@@ -64,7 +69,9 @@ def find_as2_log():
     as2_not_found()
   elif sys.platform == "win32":
     key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Valve\\Steam")
+    debug("Registry key", key)
     steam_path = winreg.QueryValueEx(key, "InstallPath")[0]
+    debug("Steam path", steam_path)
 
     library_folders = [steam_path]
     lib_file = steam_path + "\\steamapps\\libraryfolders.vdf"
@@ -75,6 +82,7 @@ def find_as2_log():
         for line in f.readlines():
           if lib_pattern.match(line):
             library_folders.append(lib_pattern.search(line).group(1))
+    debug("Library folders", library_folders)
 
     for dir in library_folders:
       if os.path.exists(dir + "\\steamapps\\appmanifest_235800.acf"):
@@ -110,6 +118,7 @@ def append_xml(sbs_tag, tag, sbs, name):
 
 def handle_xml(title, artist, duration, score, xml):
   # Parse Audiosurf XML to our format
+  debug("Got XML", xml)
   root = etree.fromstring(xml)
   user = root.find('user')
   modename = root.find('modename')
@@ -137,7 +146,7 @@ def handle_xml(title, artist, duration, score, xml):
 
   # Send XML to server
   xml_string = etree.tostring(sroot, encoding="utf-8")
-  print(xml_string)
+  debug("Sending XML", xml_string)
   r = requests.post("http://www.as2tracker.com/input_new.php", data={
     "xml": xml_string
   })
@@ -155,9 +164,11 @@ def handle_line(line):
     song_name = m.group(1)
     song_duration = m.group(2)
     song_artist = m.group(3)
+    debug("Song", song_name)
   elif score_pattern.match(sline):
     m = score_pattern.search(sline)
     score = m.group(1)
+    debug("Score", score)
   elif sline.startswith("<?xml"):
     curr_xml = line
     append = True
@@ -169,27 +180,33 @@ def handle_line(line):
     curr_xml += line
 
 def main():
-  global last_modified_time, as2_was_open
+  global as2_was_open, debug_mode
+
+  if "-d" in sys.argv[1]:
+    debug_mode = True
 
   mode = get_log_mode()
   if mode == -1:
     print("Unknown OS:", sys.platform)
     sys.exit(1)
   elif mode == 0:
+    debug("Waiting for AS2 to exit")
     while (is_as2_running()):
       time.sleep(2)
+
+    # Prevent running multiple times after closing
     if not as2_was_open:
       return
     as2_was_open = False
+
     log_path = find_as2_log()
-    curr_modified_time = os.stat(log_path).st_mtime
-    if (last_modified_time < curr_modified_time):
-      last_modified_time = curr_modified_time
-      with open(log_path, 'r', encoding="ISO-8859-1") as f:
-        for line in f.readlines():
-          handle_line(line)
+    debug("Log path", log_path)
+    with open(log_path, 'r', encoding="ISO-8859-1") as f:
+      for line in f.readlines():
+        handle_line(line)
   elif mode == 1:
     log_path = find_as2_log()
+    debug("Log path", log_path)
     with open(log_path, 'r', encoding="ISO-8859-1") as f:
       prev_size = 0
       curr_size = os.stat(log_path).st_size
@@ -210,6 +227,8 @@ def main():
           handle_line(line)
 
 if __name__ == "__main__":
+  debug("OS", sys.platform)
+  debug("Mode", get_log_mode())
   while 1:
     main()
     time.sleep(2)

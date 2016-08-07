@@ -7,5 +7,8 @@ Installation:
 2. Install dependencies with `pip install -r requirements.txt`  
 3. Run `python tracker.py`  
 
+### Testing has been very limited, it's very possible this might not work on your machine
+### Bug reports are always welcome (tip: use `-d` to enable debug mode)
+
 TODO:
 - Mac support
