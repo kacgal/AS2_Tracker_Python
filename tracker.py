@@ -101,7 +101,12 @@ def find_as2_log():
 def is_as2_running():
   global as2_was_open
   try:
-    process_names = [psutil.Process(i).name() for i in psutil.pids()]
+    process_names = []
+    for proc in psutil.process_iter():
+      try:
+        process_names.append(proc.name())
+      except psutil.NoSuchProcess:
+        pass
   except psutil.NoSuchProcess:
     return False
   if ("Audiosurf2.x86" in process_names
