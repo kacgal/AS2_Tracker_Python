@@ -47,6 +47,8 @@ def debug(tag, msg=""):
 def get_log_mode():
   if sys.platform == "linux":
     return 1
+  elif sys.platform == "darwin":
+    return 1
   elif sys.platform == "win32":
     return 0
   else:
@@ -63,6 +65,12 @@ def find_as2_log():
     return log_loc
   elif sys.platform == "linux":
     path = os.getenv("HOME") + "/.config/unity3d/Audiosurf, LLC/Audiosurf 2/Player.log"
+    if os.path.exists(path):
+      log_loc = path
+      return path
+    as2_not_found()
+  elif sys.platform == "darwin":
+    path = os.getenv("HOME") + "/Library/Logs/Unity/Player.log"
     if os.path.exists(path):
       log_loc = path
       return path
@@ -98,7 +106,8 @@ def is_as2_running():
     return False
   if ("Audiosurf2.x86" in process_names
     or "Audiosurf2.x86_64" in process_names
-    or "Audiosurf2.exe" in process_names):
+    or "Audiosurf2.exe" in process_names
+    or "Audiosurf2" in process_names):
     as2_was_open = True
     return True
   return False
