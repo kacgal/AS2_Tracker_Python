@@ -182,7 +182,7 @@ def handle_line(line):
 def main():
   global as2_was_open, debug_mode
 
-  if "-d" in sys.argv[1]:
+  if "-d" in sys.argv:
     debug_mode = True
 
   mode = get_log_mode()
