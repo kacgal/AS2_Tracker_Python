@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from threading import Thread
 import time
 
 try:
@@ -91,6 +92,17 @@ def append_xml(sbs_tag, tag, sbs, name):
     etree.SubElement(entry, "Comment").text = e.find("comment").text if e.find("comment") is not None else " "
     etree.SubElement(entry, "Username").text = e.find("username").text
 
+def upload_song(xml_string, title, artist, song_id):
+  debug("Sending XML", xml_string)
+  r = requests.post("http://www.as2tracker.com/input_new.php", data={
+    "xml": xml_string
+  })
+  if r.status_code == 200:
+    print("Sent score for", title, "-", artist, "http://as2tracker.com/song/" + song_id)
+  else:
+    print("Failed to send score, error", r.status_code)
+    print(r.text)
+
 def handle_xml(title, artist, duration, score, xml):
   # Parse Audiosurf XML to our format
   debug("Got XML", xml)
@@ -120,16 +132,8 @@ def handle_xml(title, artist, duration, score, xml):
   etree.SubElement(ssong, "CanPostScore").text = user.get("canpostscores")
 
   # Send XML to server
-  xml_string = etree.tostring(sroot, encoding="utf-8")
-  debug("Sending XML", xml_string)
-  r = requests.post("http://www.as2tracker.com/input_new.php", data={
-    "xml": xml_string
-  })
-  if r.status_code == 200:
-    print("Sent score for", title, "-", artist, "http://as2tracker.com/song/" + song_id)
-  else:
-    print("Failed to send score, error", r.status_code)
-    print(r.text)
+  thread = Thread(target=upload_song, args=(etree.tostring(sroot, encoding="utf-8"), title, artist, song_id))
+  thread.start()
 
 def handle_line(line):
   global song_pattern, song_name, song_duration, song_artist, score_pattern, score, curr_xml, append
