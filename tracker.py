@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import time
@@ -12,6 +13,8 @@ import re
 import requests
 
 import xml.etree.ElementTree as etree
+
+args = None
 
 debug_mode = False
 
@@ -152,7 +155,7 @@ def handle_line(line):
     curr_xml += line
 
 def main():
-  global as2_was_open
+  global args
 
   log_path = find_as2_log()
   debug("Log path", log_path)
@@ -160,7 +163,8 @@ def main():
     prev_size = 0
     curr_size = os.stat(log_path).st_size
 
-    f.seek(curr_size)
+    if not args.read_whole_file:
+      f.seek(curr_size)
 
     while 1:
       curr_size = os.stat(log_path).st_size
@@ -176,7 +180,11 @@ def main():
         handle_line(line)
 
 if __name__ == "__main__":
-  if "-d" in sys.argv:
+  parser = argparse.ArgumentParser(description="Parse and upload song scores from Audiosurf2 to http://as2tracker.com")
+  parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode")
+  parser.add_argument("--read-whole-file", "--whole", "-w", action="store_true", help="Read the whole log file (Useful for restarting the script mid-game or sending scores from the previous run)")
+  args = parser.parse_args()
+  if args.debug:
     debug_mode = True
   debug("OS", sys.platform)
   while 1:
