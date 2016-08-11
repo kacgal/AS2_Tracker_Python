@@ -3,11 +3,6 @@ import sys
 import time
 
 try:
-  import psutil
-except:
-  print("psutil not found, continuing anyway")
-
-try:
   import winreg
 except:
   pass
@@ -21,7 +16,6 @@ import xml.etree.ElementTree as etree
 debug_mode = False
 
 log_loc = None
-as2_was_open = True
 
 curr_xml = ""
 append = False
@@ -39,21 +33,6 @@ def debug(tag, msg=""):
   if debug_mode:
     print(tag, ":", msg)
 
-'''
-  mode -1 = Unknown, will exit
-  mode  0 = Wait until Audiosurf2 exits, then read file as a whole
-  mode  1 = Watch file and read as it's updated
-'''
-def get_log_mode():
-  if sys.platform == "linux":
-    return 1
-  elif sys.platform == "darwin":
-    return 1
-  elif sys.platform == "win32":
-    return 0
-  else:
-    return -1
-
 def as2_not_found():
   print("Audiosurf 2 not found! Are you sure it's installed?")
   print("Submit an issue at https://github.com/kacgal/AS2_Tracker_Python/issues if it is")
@@ -68,13 +47,11 @@ def find_as2_log():
     if os.path.exists(path):
       log_loc = path
       return path
-    as2_not_found()
   elif sys.platform == "darwin":
     path = os.getenv("HOME") + "/Library/Logs/Unity/Player.log"
     if os.path.exists(path):
       log_loc = path
       return path
-    as2_not_found()
   elif sys.platform == "win32":
     key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Valve\\Steam")
     debug("Registry key", key)
@@ -96,26 +73,7 @@ def find_as2_log():
       if os.path.exists(dir + "\\steamapps\\appmanifest_235800.acf"):
         log_loc = dir + "\\steamapps\\common\\Audiosurf 2\\Audiosurf2_Data\\output_log.txt"
         return log_loc
-    as2_not_found()
-
-def is_as2_running():
-  global as2_was_open
-  try:
-    process_names = []
-    for proc in psutil.process_iter():
-      try:
-        process_names.append(proc.name())
-      except psutil.NoSuchProcess:
-        pass
-  except psutil.NoSuchProcess:
-    return False
-  if ("Audiosurf2.x86" in process_names
-    or "Audiosurf2.x86_64" in process_names
-    or "Audiosurf2.exe" in process_names
-    or "Audiosurf2" in process_names):
-    as2_was_open = True
-    return True
-  return False
+  as2_not_found()
 
 def append_xml(sbs_tag, tag, sbs, name):
   sb = etree.SubElement(sbs_tag, tag)
@@ -194,55 +152,33 @@ def handle_line(line):
     curr_xml += line
 
 def main():
-  global as2_was_open, debug_mode
+  global as2_was_open
 
-  if "-d" in sys.argv:
-    debug_mode = True
+  log_path = find_as2_log()
+  debug("Log path", log_path)
+  with open(log_path, 'r', encoding="ISO-8859-1") as f:
+    prev_size = 0
+    curr_size = os.stat(log_path).st_size
 
-  mode = get_log_mode()
-  if mode == -1:
-    print("Unknown OS:", sys.platform)
-    sys.exit(1)
-  elif mode == 0:
-    debug("Waiting for AS2 to exit")
-    while (is_as2_running()):
-      time.sleep(2)
+    f.seek(curr_size)
 
-    # Prevent running multiple times after closing
-    if not as2_was_open:
-      return
-    as2_was_open = False
-
-    log_path = find_as2_log()
-    debug("Log path", log_path)
-    with open(log_path, 'r', encoding="ISO-8859-1") as f:
-      for line in f.readlines():
-        handle_line(line)
-  elif mode == 1:
-    log_path = find_as2_log()
-    debug("Log path", log_path)
-    with open(log_path, 'r', encoding="ISO-8859-1") as f:
-      prev_size = 0
+    while 1:
       curr_size = os.stat(log_path).st_size
-      
-      f.seek(curr_size)
-
-      while 1:
-        curr_size = os.stat(log_path).st_size
-        if (prev_size > curr_size):
-          break
-        prev_size = curr_size
-        where = f.tell()
-        line = f.readline()
-        if not line:
-          time.sleep(1)
-          f.seek(where)
-        else:
-          handle_line(line)
+      if (prev_size > curr_size):
+        break
+      prev_size = curr_size
+      where = f.tell()
+      line = f.readline()
+      if not line:
+        time.sleep(1)
+        f.seek(where)
+      else:
+        handle_line(line)
 
 if __name__ == "__main__":
+  if "-d" in sys.argv:
+    debug_mode = True
   debug("OS", sys.platform)
-  debug("Mode", get_log_mode())
   while 1:
     main()
     time.sleep(2)
