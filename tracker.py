@@ -32,7 +32,7 @@ song_duration = 0
 score = 0
 
 score_pattern = re.compile("^\$#\$ setting score (\d+) for song: .+")
-song_pattern = re.compile("^sending score\. title:(.+) duration:(\d+) artist:(.+)$")
+song_pattern = re.compile("^sending score\. title:(.+) duration:(\d+) artist:(.*)$")
 
 def debug(tag, msg=""):
   global debug_mode
