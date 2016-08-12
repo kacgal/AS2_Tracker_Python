@@ -129,6 +129,7 @@ def find_as2_log():
 def append_xml(sbs_tag, tag, sbs, name):
   sb = etree.SubElement(sbs_tag, tag)
   entries = etree.SubElement(sb, "Entries")
+  scores = list()
   for e in sbs.find('scoreboard[@name=\'' + name + '\']'):
     entry = etree.SubElement(entries, "Entry")
     etree.SubElement(entry, "UserID").text = e.get("userid")
@@ -138,6 +139,8 @@ def append_xml(sbs_tag, tag, sbs, name):
     etree.SubElement(entry, "Mode").text = e.find("modename").text
     etree.SubElement(entry, "Comment").text = e.find("comment").text if e.find("comment") is not None else " "
     etree.SubElement(entry, "Username").text = e.find("username").text
+    scores.append(e.get("score"))
+  return scores
 
 def upload_song(xml_string, title, artist, song_id):
   debug("Sending XML", xml_string)
@@ -166,7 +169,7 @@ def handle_xml(title, artist, duration, score, xml):
   etree.SubElement(sscore, "Mode").text = modename.get("modename")
   etree.SubElement(sscore, "Value").text = score
   sscoreboard = etree.SubElement(ssong, "Scoreboard")
-  append_xml(sscoreboard, "Global", scoreboards, "public")
+  scores = append_xml(sscoreboard, "Global", scoreboards, "public")
   append_xml(sscoreboard, "Friends", scoreboards, "friends")
   append_xml(sscoreboard, "Regional", scoreboards, "region")
   etree.SubElement(ssong, "Title").text = title
@@ -181,6 +184,7 @@ def handle_xml(title, artist, duration, score, xml):
   # Send XML to server
   thread = Thread(target=upload_song, args=(etree.tostring(sroot, encoding="utf-8"), title, artist, song_id))
   thread.start()
+  twitch_chat_send_result(title, artist, list(scores), score)
 
 def twitch_connect(username, auth_key):
   global bot
@@ -189,6 +193,19 @@ def twitch_connect(username, auth_key):
 
 def send_twitch_message(name, artist):
   bot.send_msg(args.msg_format.format(t=name, a=artist))
+
+def twitch_chat_send_result(title, artist, scores, score):
+  scores.sort(reverse=True)
+  pos = 1
+  for s in scores:
+    if score >= s:
+      break
+    pos += 1
+  bot.send_msg(args.result_format.format(t=title, a=artist, s=score, p=pos, o=pos_ordinal(pos)))
+
+def pos_ordinal(n):
+  # Stolen from http://stackoverflow.com/a/20007730
+  return "tsnrhtdd"[(n/10%10!=1)*(n%10<4)*n%10::4]
 
 def handle_line(line):
   global song_pattern, song_name, song_duration, song_artist, score_pattern, score, curr_xml, append, song_load_pattern, song_start_pattern
@@ -262,6 +279,7 @@ if __name__ == "__main__":
   parser.add_argument("--twitch-username", "-u", action="store", help="Your Twitch.TV username", required=True, metavar="USERNAME", dest="username")
   parser.add_argument("--twitch-oauth-key", "-k", action="store", help="Your Twitch.TV OAuth key", required=True, metavar="OAUTH_KEY", dest="oauth_key")
   parser.add_argument("--twitch-message-format", "-m", action="store", help="Message format, {t} and {a} for song title and artist, respectively", default="Now playing: {t} - {a}", metavar="FORMAT", dest="msg_format")
+  parser.add_argument("--twitch-result-format", "-r", action="store", help="Result format, {t}, {a}, {s}, {p} and {o} for song title, artist, score, position and position ordinal respectively", default="I just played {t} - {a} and ended with a score of {s} placing {p}{o}.", metavar="FORMAT", dest="result_format")
   args = parser.parse_args()
 
   if args.debug:
