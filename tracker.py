@@ -192,16 +192,18 @@ def twitch_connect(username, auth_key):
   bot.start()
 
 def send_twitch_message(name, artist):
-  bot.send_msg(args.msg_format.format(t=name, a=artist))
+  if args.msg_format:
+    bot.send_msg(args.msg_format.format(t=name, a=artist))
 
 def twitch_chat_send_result(title, artist, scores, score):
-  scores.sort(reverse=True)
-  pos = 1
-  for s in scores:
-    if score >= s:
-      break
-    pos += 1
-  bot.send_msg(args.result_format.format(t=title, a=artist, s=score, p=pos, o=pos_ordinal(pos)))
+  if args.result_format:
+    scores.sort(reverse=True)
+    pos = 1
+    for s in scores:
+      if score >= s:
+        break
+      pos += 1
+    bot.send_msg(args.result_format.format(t=title, a=artist, s=score, p=pos, o=pos_ordinal(pos)))
 
 def pos_ordinal(n):
   # Stolen from http://stackoverflow.com/a/20007730
