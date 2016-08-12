@@ -19,4 +19,4 @@ Arguments:
 - --read-whole-file : Scan the whole log file for scores
 
 ### Testing has been very limited, it's very possible this might not work on your machine
-### Bug reports are always welcome (tip: use `-d` to enable debug mode)
+### Bug reports are always welcome
