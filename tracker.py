@@ -1,5 +1,7 @@
 import argparse
 import os
+import signal
+import socket
 import sys
 from threading import Thread
 import time
@@ -29,8 +31,53 @@ song_artist = ""
 song_duration = 0
 score = 0
 
+bot = None
+
 score_pattern = re.compile("^\$#\$ setting score (\d+) for song: .+")
 song_pattern = re.compile("^sending score\. title:(.+) duration:(\d+) artist:(.*)$")
+
+song_load_pattern = re.compile("^getting score\. title:(.+) artist:(.*)$")
+song_start_pattern = re.compile("^SteamHTMLSurface\.RemoveBrowser\([0-9]+\)$")
+
+class TwitchIRC:
+  def __init__(self, username, oauth_key):
+    self.user = username
+    self.auth = oauth_key
+    self.chan = "#" + username
+    self.should_exit = False
+
+  def exit(self):
+    self._send_raw("QUIT")
+    self.con.close()
+    self.should_exit = True
+
+  def start(self):
+    if self.should_exit:
+      raise RuntimeError()
+    self.con = socket.socket()
+    self.con.connect(("irc.chat.twitch.tv", 6667))
+    self._send_raw("PASS {}".format(self.auth))
+    self._send_raw("NICK {}".format(self.user))
+    self._send_raw("JOIN {}".format(self.chan))
+
+
+    while True:
+      try:
+        r = self.con.recv(1024).decode("UTF-8")
+      except:
+        break
+      debug("IRC recv", r)
+      if r == "PING :tmi.twitch.tv":
+        self._send_raw("PONG :tmi.twitch.tv")
+      time.sleep(1)
+
+  def send_msg(self, msg):
+    self._send_raw("PRIVMSG {} :{}".format(self.chan, msg))
+
+  def _send_raw(self, msg):
+    msg = "{}\r\n".format(msg).encode("UTF-8")
+    debug("IRC sending", msg)
+    self.con.send(msg)
 
 def debug(tag, msg=""):
   global debug_mode
@@ -135,10 +182,26 @@ def handle_xml(title, artist, duration, score, xml):
   thread = Thread(target=upload_song, args=(etree.tostring(sroot, encoding="utf-8"), title, artist, song_id))
   thread.start()
 
+def twitch_connect(username, auth_key):
+  global bot
+  bot = TwitchIRC(username, auth_key)
+  bot.start()
+
+def send_twitch_message(name, artist):
+  bot.send_msg(args.msg_format.format(t=name, a=artist))
+
 def handle_line(line):
-  global song_pattern, song_name, song_duration, song_artist, score_pattern, score, curr_xml, append
+  global song_pattern, song_name, song_duration, song_artist, score_pattern, score, curr_xml, append, song_load_pattern, song_start_pattern
   sline = line.strip()
-  if song_pattern.match(sline):
+  if song_load_pattern.match(sline):
+    m = song_load_pattern.search(sline)
+    song_name = m.group(1)
+    song_artist = m.group(2)
+    debug("Song", song_name)
+  elif song_start_pattern.match(sline):
+    m = song_start_pattern.match(sline)
+    send_twitch_message(song_name, song_artist)
+  elif song_pattern.match(sline):
     m = song_pattern.search(sline)
     song_name = m.group(1)
     song_duration = m.group(2)
@@ -183,14 +246,30 @@ def main():
       else:
         handle_line(line)
 
+def handle_exit(sig, f):
+  global bot
+  print("Exiting...")
+  bot.exit()
+  sys.exit()
+
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="Parse and upload song scores from Audiosurf2 to http://as2tracker.com")
   parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode")
   parser.add_argument("--read-whole-file", "--whole", "-w", action="store_true", help="Read the whole log file (Useful for restarting the script mid-game or sending scores from the previous run)")
+  parser.add_argument("--twitch-username", "-u", action="store", help="Your Twitch.TV username", required=True, metavar="USERNAME", dest="username")
+  parser.add_argument("--twitch-oauth-key", "-k", action="store", help="Your Twitch.TV OAuth key", required=True, metavar="OAUTH_KEY", dest="oauth_key")
+  parser.add_argument("--twitch-message-format", "-m", action="store", help="Message format, {t} and {a} for song title and artist, respectively", default="Now playing: {t} - {a}", metavar="FORMAT", dest="msg_format")
   args = parser.parse_args()
+
   if args.debug:
     debug_mode = True
   debug("OS", sys.platform)
+
+  bot_thread = Thread(target=twitch_connect, args=(args.username, args.oauth_key))
+  bot_thread.start()
+
+  signal.signal(signal.SIGINT, handle_exit)
+
   while 1:
     main()
     time.sleep(2)
