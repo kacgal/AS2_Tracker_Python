@@ -163,7 +163,7 @@ def main():
 
   log_path = find_as2_log()
   debug("Log path", log_path)
-  with open(log_path, 'r', encoding="ISO-8859-1") as f:
+  with open(log_path, 'r', encoding="UTF-8") as f:
     prev_size = 0
     curr_size = os.stat(log_path).st_size
 
@@ -176,7 +176,10 @@ def main():
         break
       prev_size = curr_size
       where = f.tell()
-      line = f.readline()
+      try:
+        line = f.readline()
+      except:
+        continue
       if not line:
         time.sleep(1)
         f.seek(where)
