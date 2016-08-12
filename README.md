@@ -7,6 +7,8 @@ Features:
 - Multiplatform! Linux / Windows / Mac are all supported
 - Announce current song in your [Twitch.TV](https://twitch.tv) chat
 - Scans the log file as you play
+ 
+Note: The current song announcer doesn't work with the bleedingedge beta
 
 Installation:  
 0. Make sure you have [Python3](https://www.python.org/downloads/) installed (`python -V` to check)  
@@ -19,7 +21,8 @@ Arguments:
 - --read-whole-file : Scan the whole log file for scores
 - --twitch-username <username> : Your twitch username
 - --twitch-oauth-key <oauth key> : Your OAuth key (can be gotten from [here](http://www.twitchapps.com/tmi/))
-- --twitch-message-format <format> : Message format, {t} and {a} for song title and aritst, repectively
+- --twitch-message-format <format> : Message format, sent when starting song, {t} and {a} for song title and aritst, repectively
+- --twitch-result-format <format> : Result format, sent when  song finished, {t}, {a}, {s}, {p} and {o} for song title, artist, score, position and position ordinal respectively
 
 ### Testing has been very limited, it's very possible this might not work on your machine
 ### Bug reports are always welcome
