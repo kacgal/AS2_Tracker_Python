@@ -7,7 +7,6 @@ Features:
 - Multiplatform! Linux / Windows / Mac are all supported
 - Announce current song in your [Twitch.TV](https://twitch.tv) chat
 - Scans the log file as you play
-- No configuration needed
 
 Installation:  
 0. Make sure you have [Python3](https://www.python.org/downloads/) installed (`python -V` to check)  
