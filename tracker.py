@@ -67,7 +67,7 @@ class TwitchIRC:
       except:
         break
       debug("IRC recv", r)
-      if r == "PING :tmi.twitch.tv":
+      if r == "PING :tmi.twitch.tv\r\n":
         self._send_raw("PONG :tmi.twitch.tv")
       time.sleep(1)
 
