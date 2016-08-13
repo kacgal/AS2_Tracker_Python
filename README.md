@@ -21,8 +21,8 @@ Arguments:
 - --read-whole-file : Scan the whole log file for scores
 - --twitch-username <username> : Your twitch username
 - --twitch-oauth-key <oauth key> : Your OAuth key (can be gotten from [here](http://www.twitchapps.com/tmi/))
-- --twitch-message-format <format> : Message format, sent when starting song, {t} and {a} for song title and aritst, repectively
-- --twitch-result-format <format> : Result format, sent when  song finished, {t}, {a}, {s}, {p} and {o} for song title, artist, score, position and position ordinal respectively
+- --twitch-message-format <format> : Message format, sent when starting song, variables: {title} and {artist}
+- --twitch-result-format <format> : Result format, sent when  song finished, {title}, {artist}, {score}, {position} and {position_suffix}
 
 ### Testing has been very limited, it's very possible this might not work on your machine
 ### Bug reports are always welcome

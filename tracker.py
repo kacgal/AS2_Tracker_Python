@@ -193,7 +193,7 @@ def twitch_connect(username, auth_key):
 
 def send_twitch_message(name, artist):
   if args.msg_format:
-    bot.send_msg(args.msg_format.format(t=name, a=artist))
+    bot.send_msg(args.msg_format.format(title=name, artist=artist))
 
 def twitch_chat_send_result(title, artist, scores, score):
   if args.result_format:
@@ -203,7 +203,7 @@ def twitch_chat_send_result(title, artist, scores, score):
       if score >= s:
         break
       pos += 1
-    bot.send_msg(args.result_format.format(t=title, a=artist, s=score, p=pos, o=pos_ordinal(pos)))
+    bot.send_msg(args.result_format.format(title=title, artist=artist, score=score, position=pos, position_suffix=pos_ordinal(pos)))
 
 def pos_ordinal(n):
   # Stolen from http://stackoverflow.com/a/20007730
@@ -280,8 +280,8 @@ if __name__ == "__main__":
   parser.add_argument("--read-whole-file", "--whole", "-w", action="store_true", help="Read the whole log file (Useful for restarting the script mid-game or sending scores from the previous run)")
   parser.add_argument("--twitch-username", "-u", action="store", help="Your Twitch.TV username", required=True, metavar="USERNAME", dest="username")
   parser.add_argument("--twitch-oauth-key", "-k", action="store", help="Your Twitch.TV OAuth key", required=True, metavar="OAUTH_KEY", dest="oauth_key")
-  parser.add_argument("--twitch-message-format", "-m", action="store", help="Message format, {t} and {a} for song title and artist, respectively", default="Now playing: {t} - {a}", metavar="FORMAT", dest="msg_format")
-  parser.add_argument("--twitch-result-format", "-r", action="store", help="Result format, {t}, {a}, {s}, {p} and {o} for song title, artist, score, position and position ordinal respectively", default="I just played {t} - {a} and ended with a score of {s} placing {p}{o}.", metavar="FORMAT", dest="result_format")
+  parser.add_argument("--twitch-message-format", "-m", action="store", help="Message format, variables: {title} and {artist}", default="Now playing: {title} - {artist}", metavar="FORMAT", dest="msg_format")
+  parser.add_argument("--twitch-result-format", "-r", action="store", help="Result format, variables: {title}, {artist}, {score}, {position} and {position_suffix}", default="I just played {title} - {artist} and ended with a score of {score} placing {position}{position_suffix}.", metavar="FORMAT", dest="result_format")
   args = parser.parse_args()
 
   if args.debug:
